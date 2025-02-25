@@ -63,13 +63,14 @@ resource "aws_nat_gateway" "nat_gateways" {
 
 # Fetch Private Route Tables for Each Private Subnet
 data "aws_route_table" "private" {
-  for_each = { for idx, subnet in var.vpc_private_subnets : idx => subnet } # Use var instead of module output
-  subnet_id = each.value
+  count = length(var.vpc_private_subnets) > 0 ? length(var.vpc_private_subnets) : 0
+  subnet_id = var.vpc_private_subnets[count.index]
 }
 
 resource "aws_route" "private_routes" {
-  for_each               = { for idx, subnet in var.vpc_private_subnets : idx => subnet } # Use var instead of module output
-  route_table_id         = data.aws_route_table.private[each.key].id
+  count = length(var.vpc_private_subnets) > 0 ? length(var.vpc_private_subnets) : 0
+
+  route_table_id         = length(data.aws_route_table.private) > count.index ? data.aws_route_table.private[count.index].id : null
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_gateways[each.key].id
+  nat_gateway_id         = aws_nat_gateway.nat_gateways[count.index].id
 }
