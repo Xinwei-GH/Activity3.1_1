@@ -61,16 +61,24 @@ resource "aws_nat_gateway" "nat_gateways" {
   }
 }
 
-# Fetch Private Route Tables for Each Private Subnet
+# ✅ Safe Lookup for Private Route Tables - Only Run if Subnets Exist
 data "aws_route_table" "private" {
-  count = length(var.vpc_private_subnets) > 0 ? length(var.vpc_private_subnets) : 0
-  subnet_id = var.vpc_private_subnets[count.index]
+  for_each = length(module.vpc.private_subnets) > 0 ? { for idx, subnet in module.vpc.private_subnets : idx => subnet } : {}
+
+  subnet_id = each.value
+
+  # ✅ Ensure this lookup runs only after subnets are created
+  depends_on = [module.vpc]
 }
 
+# ✅ Safe Private Routes Update - Ensure Route Tables Exist
 resource "aws_route" "private_routes" {
-  count = length(var.vpc_private_subnets) > 0 ? length(var.vpc_private_subnets) : 0
+  for_each = length(module.vpc.private_subnets) > 0 ? { for idx, subnet in module.vpc.private_subnets : idx => subnet } : {}
 
-  route_table_id         = length(data.aws_route_table.private) > count.index ? data.aws_route_table.private[count.index].id : null
+  route_table_id         = lookup(data.aws_route_table.private, each.key, null) != null ? data.aws_route_table.private[each.key].id : null
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_gateways[count.index].id
+  nat_gateway_id         = aws_nat_gateway.nat_gateways[each.key].id
+
+  # ✅ Ensure this runs AFTER route tables are created
+  depends_on = [data.aws_route_table.private]
 }
