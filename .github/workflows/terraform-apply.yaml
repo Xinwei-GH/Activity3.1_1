@@ -1,8 +1,7 @@
 name: Terraform Deployment
 
 on:
-  push:
-    branches: [ "main" ]
+  workflow_dispatch:  # Allows manual execution from GitHub Actions UI
 
 env:            
   AWS_REGION: ap-southeast-1  
